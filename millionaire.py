@@ -1,78 +1,137 @@
-#!usr/bin/python3
+#!/usr/bin/python3
+
 import random
+import os.path
+def adding_questions(fname):
+    questions = get_questions_from_file(fname)
+    only_questions = []
+    for el in questions:
+        only_questions.append(el.strip().split("?")[0]+"?")
+    checking = input("Do you want to add more questions into the game y/n: ")
+    while checking == "y":
+        question = input("Write your question: ")
+        while question in only_questions:
+            question = input("This question allready exists in data\nWrite new question: ")
+        correct = input("Enter the corect answer: ")
+        options = input("Other 3 options: ").split()
+        while len(options) != 3:
+            options = input("You must put spaces between them: ").split()
+        with open("questions.txt", "a") as f:
+            f.write(question+correct+","+",".join(options)+"\n")
+        checking = input("Do you want to add more questions into the game y/n: ")
 
-f = open("questions.txt")
-questions = f.readlines()
-f.close()
-tp = open("top_players.txt")
-players = tp.readlines()
-tp.close()
 
-print("Players")
-for i in range(len(players)):
-    players[i] = players[i][0:len(players[i])-1].split()
-    print(*players[i])
+def get_random_5_questions(questions):
+	tmp = []
+	while len(tmp) < 5:
+		num = random.randint(0, len(questions) -1)
+		if questions[num] not in tmp:
+			tmp.append(questions[num])
+	return tmp
 
-for i in range(len(questions)):
-    questions[i] = questions[i][0:len(questions[i])-1]
-    print(questions[i])
+def structure_questions(tmp):
+	gquestions = {}
 
-def verifying(name,ml):
-    for i in ml:
-        if i[0] == name:
-            print("Do you want to overwrite your results?")
-            answer = input()
-            if answer.lower() == "yes":
-                print("Okay")
-                ml.pop(i)
-                break
-            username = input("Enter another username")
-            verifying(username,ml)
+	for el in tmp:
+		q, a = el.split("?")
+		gquestions[q+"?"] = a.split(",")
+	return gquestions
 
-game_questions = []
+def game(gquestions):
+	cnt  = 0
+	for q,a in gquestions.items():
+		print(q)
+		correct = a[0]
+		random.shuffle(a)
+		for el in a:
+			print(el)
+		answer = input("Enter your answer: ")
+		if answer == correct:
+			print("Correct")
+			cnt += 1
+		else:
+			print("Incorrect. The correct answer was", correct)
 
-while len(game_questions) < 10:
-    num = random.randint(0, len(questions)-1)
-    if questions[num] not in game_questions:
-        game_questions.append(questions[num])
+	print("You got %d/5" %cnt)
+	return cnt
 
-gquestions = {}
-for el in game_questions:
-    q,a = el.split("?")
-    gquestions[q] = a.split(",")
+def get_questions_from_file(fname):
+	with open(fname) as f:
+		return f.readlines()
 
-username = input("Enter your username: ")
-verifying(username,players)
+def sanitize_data(ml):
+	return [el.strip() for el in ml]
 
-cnt = 0
-variant = ["A", "B", "C", "D"]
-cvariant = ""
-for q,a in gquestions.items():
-    print(q)
-    correct = a[0]
-    random.shuffle(a)
-    for i in range(len(variant)):
-        print(variant[i], a[i])
-        if a[i] == correct:
-            cvariant = variant[i]
-    answer = input("Your variant: ")
-    if answer.upper() == cvariant:
-        cnt += 1
-        print("Correct.")
-    else:
-        print("Not. Correct answer was: ", correct)
+def check_file_existence(fname):
+	if not os.path.isfile(fname):
+		print("Your files does not exists: %s. Please check" %fname)
+		return False
+	return True
 
-print("You got %d/10" %cnt)
-players.append([username,str(cnt)])
-n = len(players)
-for i in range(n):
-	for j in range(0, n-i-1):
-		if int(players[j][1]) < int(players[j+1][1]):
-			players[j], players[j+1] = players[j+1], players[j]
-for i in range(len(players)):
-    players[i] = ' '.join(players[i])+'\n'
-print(players)
-f  = open("top_players.txt","w")
-for i in players:
-    f.write(i)
-f.close()
+def get_top_players_from_file(fname):
+	with open(fname) as f:
+		return f.readlines()
+
+def create_file(fname):
+	f = open(fname, "w")
+	f.close()
+
+def create_players_dict(data):
+	# should be written "username: XP"
+	md = {}
+	for el in data:
+		p,x = el.split(": ")
+		md[p] = int(x)
+	return md
+	
+def confirm_username(username, players):	
+	if username in players:
+		ans = input("Would you like to rewrite your XP? ")
+		if ans.lower() == "y":
+			pass
+		else:
+			username = input("Enter your username: ")
+			while username in players:
+				username = input("Enter your username: ")
+	return username
+
+def sort_players_by_xp(players):
+	ml = list(players.items())
+	ml.sort(key=lambda x: x[1], reverse=True)
+	return ml
+
+def write_player_xp(fname, ml):
+	with open(fname, "w") as f:
+		for pl, xp in ml:
+			f.write(pl + ": " + str(xp) + "\n")
+
+def main():
+    question_file = "questions.txt"
+    fl = check_file_existence(question_file)
+    if not fl:
+    	exit()
+    adding_questions(question_file)
+    username = input("Enter your username: ")
+    top_file = "top_players.txt"
+    fl = check_file_existence(top_file)
+    if not fl:
+        create_file(top_file)
+    players_data = get_top_players_from_file(top_file)
+    players = sanitize_data(players_data)
+    players_dict = create_players_dict(players)
+    username = confirm_username(username, players_dict)
+    questions = get_questions_from_file(question_file)
+    questions = sanitize_data(questions)
+    random5 = get_random_5_questions(questions)
+    game_questions = structure_questions(random5)
+    xp = game(game_questions)
+    players_dict[username] = xp
+    players = sort_players_by_xp(players_dict)
+    write_player_xp(top_file, players)
+
+main()
+
+
+
+
+
